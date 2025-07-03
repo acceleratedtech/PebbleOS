@@ -162,6 +162,27 @@ static const I2CSlavePort I2C_SLAVE_DA7212 = {
 
 I2CSlavePort *const I2C_DA7212 = &I2C_SLAVE_DA7212;
 
+static const I2CSlavePort I2C_SLAVE_MMC5603NJ = {
+    .bus = &I2C_IIC2_BUS,
+    .address = 0x30 << 1,
+};
+
+I2CSlavePort *const I2C_MMC5603NJ = &I2C_SLAVE_MMC5603NJ;
+
+static const I2CSlavePort I2C_SLAVE_BMP390 = {
+    .bus = &I2C_IIC2_BUS,
+    .address = 0x76 << 1,
+};
+
+I2CSlavePort *const I2C_BMP390 = &I2C_SLAVE_BMP390;
+
+static const I2CSlavePort I2C_SLAVE_LSM6D = {
+    .bus = &I2C_IIC2_BUS,
+    .address = 0x6A << 1,
+};
+
+I2CSlavePort *const I2C_LSM6D = &I2C_SLAVE_LSM6D;
+
 IRQ_MAP_NRFX(I2S, nrfx_i2s_0_irq_handler);
 
 IRQ_MAP_NRFX(PDM, NRFX_PDM_INST_HANDLER_GET(0));
