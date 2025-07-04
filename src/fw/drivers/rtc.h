@@ -117,4 +117,5 @@ const char* time_t_to_string(char* buffer, time_t t);
 
 #if MICRO_FAMILY_NRF5
 void rtc_irq_handler(void);
+void rtc_enable_synthetic_systick(void);
 #endif
