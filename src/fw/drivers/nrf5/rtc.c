@@ -360,6 +360,16 @@ void rtc_enable_synthetic_systick(void) {
   nrf_rtc_int_enable(BOARD_RTC_INST, NRF_RTC_INT_TICK_MASK);
 }
 
+void rtc_systick_pause(void) {
+  // We don't want the fine-grained interrupts at 100Hz when we're in stop
+  // mode -- we have a timer set for that, after all.
+  nrf_rtc_event_disable(BOARD_RTC_INST, NRF_RTC_EVENT_TICK);
+}
+
+void rtc_systick_resume(void) {
+  nrf_rtc_event_enable(BOARD_RTC_INST, NRF_RTC_EVENT_TICK);
+}
+
 //! Our RTC tick counter can overflow if nobody asks about it.  This
 //! repeating callback allows us to make sure this doesn't happen.
 static void prv_rtc_resync_timer_callback() {
