@@ -227,6 +227,11 @@ void board_init(void) {
   i2c_init(&I2C_NPMC_IIC1_BUS);
   i2c_init(&I2C_IIC2_BUS);
 
+  uint8_t da7212_powerdown[] = { 0xFD /* SYSTEM_ACTIVE */, 0 };
+  i2c_use(I2C_DA7212);
+  i2c_write_block(I2C_DA7212, 2, da7212_powerdown);
+  i2c_release(I2C_DA7212);
+
 #if 0
   i2c_init(&I2C_PMIC_HRM_BUS);
 
