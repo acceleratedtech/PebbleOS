@@ -280,6 +280,11 @@ void command_systemoff(void) {
   NRF_POWER->SYSTEMOFF = 1;
 }
 
+volatile uint32_t PERRDY;
+volatile uint32_t PERRDY2;
+volatile uint32_t PERPOWER;
+volatile uint32_t PERPOWER2;
+
 void command_wfi_forever(void) {
   extern void do_wfi();
   
@@ -435,6 +440,29 @@ void command_wfi_forever(void) {
   NRF_SPIM3->ORC = 0;
   NRF_SPIM3->PSEL.SCK = 0xFFFFFFFF;
   NRF_SPIM3->PSEL.MOSI = 0xFFFFFFFF;
+  
+  NRF_POWER->TASKS_LOWPWR = 1;
+
+  for (int i = 0; i < 32; i++) {
+    NRF_P0->PIN_CNF[i] = 0x00000002;
+    NRF_P1->PIN_CNF[i] = 0x00000002;
+  }
+  NRF_P1->OUT = 0;
+  //NRF_P1->PIN_CNF[15] = 0x1; // VCOM
+  //NRF_P1->OUTSET = 0x8000;
+  //NRF_P1->PIN_CNF[8] = 0x1; // backlight
+  
+  // CPU CG
+  // *(volatile uint32_t *)0x40000560 = 1;
+
+  // PERPOWER off except for "UART0" bit
+  // *(volatile uint32_t *)0x4000057c = 0x0;
+  // *(volatile uint32_t *)0x40000504 = 0x00000004;
+  
+  PERRDY    = *(volatile uint32_t *)0x40000404;
+  PERRDY2   = *(volatile uint32_t *)0x4000042C;
+  PERPOWER  = *(volatile uint32_t *)0x40000504;
+  PERPOWER2 = *(volatile uint32_t *)0x4000057C;
   
   while (1) {
     __DSB();
