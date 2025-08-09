@@ -239,10 +239,10 @@ void board_init(void) {
   i2c_init(&I2C_NPMC_IIC1_BUS);
   i2c_init(&I2C_IIC2_BUS);
 
-  uint8_t da7212_powerdown[] = { 0xFD /* SYSTEM_ACTIVE */, 0 };
-  i2c_use(I2C_DA7212);
-  i2c_write_block(I2C_DA7212, 2, da7212_powerdown);
-  i2c_release(I2C_DA7212);
+//  uint8_t da7212_powerdown[] = { 0xFD /* SYSTEM_ACTIVE */, 0 };
+//  i2c_use(I2C_DA7212);
+//  i2c_write_block(I2C_DA7212, 2, da7212_powerdown);
+//  i2c_release(I2C_DA7212);
   
   // XXX: FIRM-264: stop mode breaks NimBLE
   stop_mode_disable(InhibitorMain);
@@ -289,39 +289,34 @@ void command_wfi_forever(void) {
   extern void do_wfi();
   
   prompt_command_finish();
-  flash_power_down_for_stop_mode();
+  flash_power_down_for_stop_mode(); // FIRM-307
 
-  HACK_pmic_kill_ldo(1);
-  HACK_pmic_kill_ldo(2);
-  HACK_pmic_kill_buck(2);
+  // come back for these later -- FIRM-310 / FIRM-311 / FIRM-312
+  //HACK_pmic_kill_ldo(1);
+  //HACK_pmic_kill_ldo(2);
+  //HACK_pmic_kill_buck(2);
 
   // Not __disable_irq -- that doesn't actually stop IRQs from waking us. 
   // (See comment in src/fw/freertos_application.c.)
   portENTER_CRITICAL();
   
-  NRF_NVMC->ICACHECNF &= ~NVMC_ICACHECNF_CACHEEN_Msk;
+  NRF_NVMC->ICACHECNF &= ~NVMC_ICACHECNF_CACHEEN_Msk; // normally happens in STOP
+
+  nrfx_uarte_t inst = NRFX_UARTE_INSTANCE(0);
+  nrfx_uarte_rx_abort(&inst, true, true);   // FIRM-428
   
-  
-  NRF_UARTE0->ENABLE = 0;
-  NRF_UARTE0->INTENCLR = 0xFFFFFFFF;
-  NRF_PWM0->ENABLE = 0;
-  NRF_PWM1->ENABLE = 0;
-  NRF_QSPI->TASKS_DEACTIVATE = 1;
+  NRF_PWM1->ENABLE = 0; // FIRM-309
+  NRF_P1->OUTCLR = (1 << 15);
+  NRF_P1->PIN_CNF[15] = 0x1; // VCOM
+
+  NRF_QSPI->TASKS_DEACTIVATE = 1; // FIRM-430
   *(volatile uint32_t *)0x40029010ul = 1ul; // WAR erratum 122
   *(volatile uint32_t *)0x40029054ul = 1ul;
   NRF_QSPI->ENABLE = 0;
-  
-  NRF_TIMER0->TASKS_STOP = 1;
-  NRF_TIMER0->INTENCLR = 0xFFFFFFFF;
-  NRF_TIMER1->TASKS_STOP = 1;
-  NRF_TIMER1->INTENCLR = 0xFFFFFFFF;
-  NRF_TIMER2->TASKS_STOP = 1;
-  NRF_TIMER2->INTENCLR = 0xFFFFFFFF;
-  NRF_TIMER3->TASKS_STOP = 1;
-  NRF_TIMER3->INTENCLR = 0xFFFFFFFF;
-  NRF_TIMER4->TASKS_STOP = 1;
-  NRF_TIMER4->INTENCLR = 0xFFFFFFFF;
 
+
+  // FIRM-431
+  /*
   NRF_RTC0->TASKS_STOP = 1;
   NRF_RTC0->INTENCLR = 0xFFFFFFFF;
   NRF_RTC1->TASKS_STOP = 1;
@@ -329,135 +324,14 @@ void command_wfi_forever(void) {
   NRF_RTC2->TASKS_STOP = 1;
   NRF_RTC2->INTENCLR = 0xFFFFFFFF;
   
-  NRF_GPIOTE->CONFIG[0] = 0;
-  NRF_GPIOTE->EVENTS_IN[0] = 0;
-  NRF_GPIOTE->CONFIG[1] = 0;
-  NRF_GPIOTE->CONFIG[2] = 0;
-  NRF_GPIOTE->CONFIG[3] = 0;
-  NRF_GPIOTE->CONFIG[4] = 0;
-  NRF_GPIOTE->CONFIG[5] = 0;
-  NRF_GPIOTE->CONFIG[6] = 0;
-  NRF_GPIOTE->CONFIG[7] = 0;
+  NRF_CLOCK->TASKS_LFCLKSTOP = 1;
+  while (NRF_CLOCK->LFCLKRUN)
+    ;
+  NRF_CLOCK->LFRCMODE = 1;
+  NRF_CLOCK->LFCLKSRC = 0;
+  NRF_CLOCK->TASKS_LFCLKSTART = 1;
+  */
 
-  //NRF_P0->DIR = 0;
-  //NRF_P1->DIR = 0;
-
-  //for (int i = 0; i < 32; i++) {
-  //  NRF_P0->PIN_CNF[i] = 0x00000002;
-  //  NRF_P1->PIN_CNF[i] = 0x00000002;
-  //}
-  
-  NRF_RADIO->POWER = 0;
-
-  NRF_GPIOTE->INTENCLR = 0xFFFFFFFF;
-  NRF_RNG->TASKS_STOP = 1;
-  NRF_PPI->CHEN = 0;
-  for (int i = 0; i < 20; i++) {
-    NRF_PPI->CH[i].TEP = 0;
-    NRF_PPI->CH[i].EEP = 0;
-  }
-  NRF_SPIM3->INTENCLR = 0xFFFFFFFF;
-  
-  NRF_TIMER0->TASKS_SHUTDOWN = 1;
-  NRF_TIMER1->TASKS_SHUTDOWN = 1;
-  NRF_TIMER2->TASKS_SHUTDOWN = 1;
-  NRF_TIMER3->TASKS_SHUTDOWN = 1;
-  NRF_TIMER4->TASKS_SHUTDOWN = 1;
-  
-  *(volatile uint32_t *)0x4002F004 = 1; // WAR erratum 195
-  
-  // *(volatile uint32_t *)0x4007AC84ul = 0x00000002ul; // WAR erratum 246, but this makes it worse
-
-  // WAR erratum 87
-  __set_FPSCR(__get_FPSCR() & ~0x9F);
-  (void) __get_FPSCR();
-  NVIC_ClearPendingIRQ(FPU_IRQn);
-  
-  // disable FPU
-  SCB->CPACR &= ~((3UL << 20ul) | (3UL << 22ul));
-  SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-  SysTick->CTRL = 0;
-  CoreDebug->DHCSR &= ~CoreDebug_DHCSR_C_DEBUGEN_Msk;
-  CoreDebug->DEMCR &= ~CoreDebug_DEMCR_TRCENA_Msk;
-  
-  // disable all nvic enables and pendings
-  for (int i = 0; i < 8; i++) {
-    NVIC->ICER[i] = 0xFFFFFFFF;
-    NVIC->ICPR[i] = 0xFFFFFFFF;
-  }
-  
-  NRF_UARTE0->EVENTS_CTS = 0;
-  NRF_UARTE0->EVENTS_TXDRDY = 0;
-  NRF_UARTE0->EVENTS_TXSTARTED = 0;
-  NRF_UARTE0->EVENTS_TXSTOPPED = 0;
-  NRF_UARTE0->SHORTS = 0;
-  NRF_UARTE0->PSEL.TXD = 0xFFFFFFFF;
-  NRF_UARTE0->PSEL.RXD = 0xFFFFFFFF;
-  
-  NRF_SPIM0->EVENTS_ENDRX = 0;
-  NRF_SPIM0->EVENTS_ENDTX = 0;
-  NRF_SPIM0->EVENTS_STARTED = 0;
-  NRF_SPIM0->PSEL.SCK = 0xFFFFFFFF;
-  NRF_SPIM0->PSEL.MOSI = 0xFFFFFFFF;
-  NRF_TWIM0->EVENTS_TXSTARTED = 0;
-  
-  NRF_TIMER0->BITMODE = 0;
-  NRF_TIMER1->SHORTS = 0;
-  NRF_TIMER1->BITMODE = 0;
-  NRF_TIMER1->PRESCALER = 4;
-  NRF_TIMER1->CC[0] = 0;
-  NRF_TIMER2->MODE = 0;
-  NRF_TIMER2->BITMODE = 0;
-  NRF_TIMER2->CC[0] = 0;
-  NRF_RNG->CONFIG = 0;
-  NRF_ECB->TASKS_STOPECB = 1;
-  NRF_AAR->TASKS_STOP = 1;
-  NRF_CCM->SHORTS = 0;
-  NRF_CCM->MODE = 1;
-  NRF_CCM->CNFPTR = 0;
-  NRF_PWM0->EVENTS_SEQSTARTED[1] = 0;
-  NRF_PWM0->EVENTS_SEQEND[1] = 0;
-  NRF_PWM0->EVENTS_PWMPERIODEND = 0;
-  NRF_PWM0->EVENTS_LOOPSDONE = 0;
-  NRF_PWM0->PSEL.OUT[0] = 0xFFFFFFFF;
-  NRF_PWM1->EVENTS_SEQSTARTED[1] = 0;
-  NRF_PWM1->EVENTS_SEQEND[1] = 0;
-  NRF_PWM1->EVENTS_PWMPERIODEND = 0;
-  NRF_PWM1->EVENTS_LOOPSDONE = 0;
-  NRF_PWM1->PSEL.OUT[0] = 0xFFFFFFFF;
-  NRF_QSPI->IFCONFIG0 = 0;
-  NRF_QSPI->IFCONFIG1 = 0;
-  NRF_QSPI->PSEL.SCK = 0xffffffff;
-  NRF_QSPI->PSEL.CSN = 0xffffffff;
-  NRF_QSPI->PSEL.IO0 = 0xffffffff;
-  NRF_QSPI->PSEL.IO1 = 0xffffffff;
-  NRF_QSPI->PSEL.IO2 = 0xffffffff;
-  NRF_QSPI->PSEL.IO3 = 0xffffffff;
-  
-  NRF_SPIM3->EVENTS_ENDRX = 0;
-  NRF_SPIM3->EVENTS_ENDTX = 0;
-  NRF_SPIM3->EVENTS_STARTED = 0;
-  NRF_SPIM3->ORC = 0;
-  NRF_SPIM3->PSEL.SCK = 0xFFFFFFFF;
-  NRF_SPIM3->PSEL.MOSI = 0xFFFFFFFF;
-  
-  NRF_POWER->TASKS_LOWPWR = 1;
-
-  for (int i = 0; i < 32; i++) {
-    NRF_P0->PIN_CNF[i] = 0x00000002;
-    NRF_P1->PIN_CNF[i] = 0x00000002;
-  }
-  NRF_P1->OUT = 0;
-  //NRF_P1->PIN_CNF[15] = 0x1; // VCOM
-  //NRF_P1->OUTSET = 0x8000;
-  //NRF_P1->PIN_CNF[8] = 0x1; // backlight
-  
-  // CPU CG
-  // *(volatile uint32_t *)0x40000560 = 1;
-
-  // PERPOWER off except for "UART0" bit
-  // *(volatile uint32_t *)0x4000057c = 0x0;
-  // *(volatile uint32_t *)0x40000504 = 0x00000004;
   
   PERRDY    = *(volatile uint32_t *)0x40000404;
   PERRDY2   = *(volatile uint32_t *)0x4000042C;
