@@ -72,7 +72,10 @@ class PromptResponse(collections.namedtuple('PromptResponse',
         result = cls.response_struct.unpack(response[:cls.response_struct.size])
 
         response_type = result[0]
-        timestamp = datetime.fromtimestamp(result[1] / 1000.0)
+        try:
+            timestamp = datetime.fromtimestamp(result[1] / 1000.0)
+        except:
+            timestamp = datetime.fromtimestamp(0)
         message = response[cls.response_struct.size:]
 
         return cls(response_type, timestamp, message)

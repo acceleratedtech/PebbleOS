@@ -39,7 +39,10 @@ class LogMessage(collections.namedtuple('LogMessage',
 
         log_level = result[2].decode("utf8")
         task = result[3].decode("utf8")
-        timestamp = datetime.fromtimestamp(result[4] / 1000.0)
+        try:
+            timestamp = datetime.fromtimestamp(result[4] / 1000.0)
+        except:
+            timestamp = datetime.fromtimestamp(0)
         file_name = result[1].split(b'\x00', 1)[0].decode("utf8")  # NUL terminated
         line_number = result[5]
 
